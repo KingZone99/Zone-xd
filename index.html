@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZONE XD - 8 GAME SIMPEL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: black; 
+            color: gold; 
+            font-family: Arial; 
+            padding: 10px;
+            text-align: center;
+        }
+        .header {
+            background: linear-gradient(45deg, red, purple);
+            padding: 20px;
+            border-radius: 50px;
+            margin-bottom: 20px;
+            border: 3px solid gold;
+        }
+        h1 { font-size: 40px; text-shadow: 2px 2px 0 black; }
+        .balance {
+            background: #1a1a2e;
+            border: 3px solid gold;
+            border-radius: 50px;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 40px;
+            font-weight: bold;
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .game-card {
+            background: #1a1a2e;
+            border: 2px solid gold;
+            border-radius: 30px;
+            padding: 15px;
+        }
+        .game-icon { font-size: 50px; margin-bottom: 5px; }
+        .game-title { font-size: 18px; font-weight: bold; color: gold; }
+        button {
+            background: red;
+            color: white;
+            border: 2px solid gold;
+            padding: 15px;
+            border-radius: 40px;
+            font-size: 18px;
+            font-weight: bold;
+            width: 100%;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        button:active { transform: scale(0.95); background: darkred; }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .green { background: #00cc00; color: black; }
+        .orange { background: orange; color: black; }
+        .history {
+            background: #1a1a2e;
+            border: 2px solid gold;
+            border-radius: 30px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .history-item {
+            border-bottom: 1px solid gold;
+            padding: 8px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .footer {
+            margin-top: 30px;
+            padding: 20px;
+            border-top: 2px solid gold;
+            color: red;
+            font-weight: bold;
+        }
+        .green-text { color: #00ff00; }
+        .red-text { color: #ff4444; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>⚡ ZONE XD ⚡</h1>
+        <p>8 GAME - 1 FILE AJA!</p>
+    </div>
+
+    <div class="balance" id="balanceDisplay">Rp 1.000.000</div>
+
+    <div class="action-buttons">
+        <button class="green" onclick="deposit()">💳 DEPOSIT</button>
+        <button class="orange" onclick="withdraw()">💸 WITHDRAW</button>
+    </div>
+
+    <div class="game-grid">
+        <!-- 8 GAME -->
+        <div class="game-card">
+            <div class="game-icon">⚡</div>
+            <div class="game-title">ZEUS</div>
+            <button onclick="playGame('zeus')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🎲</div>
+            <div class="game-title">DADU</div>
+            <button onclick="playGame('dice')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🀄</div>
+            <div class="game-title">MAHJONG</div>
+            <button onclick="playGame('mahjong')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🪙</div>
+            <div class="game-title">KOIN</div>
+            <button onclick="playGame('coin')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🎰</div>
+            <div class="game-title">SLOT</div>
+            <button onclick="playGame('slot')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🃏</div>
+            <div class="game-title">POKER</div>
+            <button onclick="playGame('poker')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">🎯</div>
+            <div class="game-title">ROULETTE</div>
+            <button onclick="playGame('roulette')">MAIN</button>
+        </div>
+        <div class="game-card">
+            <div class="game-icon">💎</div>
+            <div class="game-title">JACKPOT</div>
+            <button onclick="playGame('jackpot')">MAIN</button>
+        </div>
+    </div>
+
+    <div class="history" id="historyList">
+        <div class="history-item">Selamat datang di ZONE XD!</div>
+    </div>
+
+    <div class="footer">
+        <div>👑 APIS OWNER 👑</div>
+        <p style="color: white; font-size: 14px;">CS: 0838-9003-5749</p>
+    </div>
+
+    <script>
+        // DATA
+        let balance = 1000000;
+        let history = [];
+
+        // FUNGSI UPDATE
+        function updateDisplay() {
+            document.getElementById('balanceDisplay').innerHTML = 'Rp ' + balance.toLocaleString();
+            let historyHtml = '';
+            for (let i = 0; i < history.length; i++) {
+                historyHtml += '<div class="history-item">' + history[i] + '</div>';
+            }
+            document.getElementById('historyList').innerHTML = historyHtml;
+        }
+
+        // DEPOSIT
+        function deposit() {
+            let amount = prompt('Nominal deposit (bebas):', '100000');
+            if (amount && !isNaN(amount)) {
+                amount = parseInt(amount);
+                balance += amount;
+                history.unshift('💰 DEPOSIT: +Rp ' + amount.toLocaleString());
+                updateDisplay();
+                alert('✅ Deposit berhasil!');
+            }
+        }
+
+        // WITHDRAW
+        function withdraw() {
+            let amount = prompt('Nominal withdraw:', '50000');
+            if (amount && !isNaN(amount)) {
+                amount = parseInt(amount);
+                if (amount <= balance) {
+                    balance -= amount;
+                    history.unshift('💸 WITHDRAW: -Rp ' + amount.toLocaleString() + ' (PENDING)');
+                    updateDisplay();
+                    alert('✅ WD diproses!');
+                } else {
+                    alert('❌ Saldo tidak cukup!');
+                }
+            }
+        }
+
+        // MAIN GAME
+        function playGame(game) {
+            if (balance <= 0) {
+                alert('❌ Deposit dulu bang!');
+                return;
+            }
+
+            let bet = prompt('Masukkan taruhan:', '10000');
+            if (!bet || isNaN(bet)) return;
+            bet = parseInt(bet);
+            
+            if (bet > balance) {
+                alert('❌ Saldo tidak cukup!');
+                return;
+            }
+            if (bet < 1000) {
+                alert('❌ Minimal 1.000!');
+                return;
+            }
+
+            balance -= bet;
+            let win = 0;
+            let result = '';
+
+            // RULES TIAP GAME
+            if (game === 'zeus') {
+                // ZEUS: 3 simbol petir
+                if (Math.random() < 0.3) { // 30% menang
+                    win = bet * 3;
+                    result = '⚡ ZEUS MENANG!';
+                } else {
+                    result = '⚡ ZEUS KALAH';
+                }
+            }
+            else if (game === 'dice') {
+                // DADU: tebak angka 1-6
+                let dice = Math.floor(Math.random() * 6) + 1;
+                let tebak = prompt('Tebak dadu (1-6):', '3');
+                if (tebak && parseInt(tebak) === dice) {
+                    win = bet * 5;
+                    result = '🎲 DADU ' + dice + ' - MENANG!';
+                } else {
+                    result = '🎲 DADU ' + dice + ' - KALAH';
+                }
+            }
+            else if (game === 'mahjong') {
+                // MAHJONG: match tile
+                let tile1 = Math.floor(Math.random() * 4);
+                let tile2 = Math.floor(Math.random() * 4);
+                if (tile1 === tile2) {
+                    win = bet * 4;
+                    result = '🀄 MAHJONG MENANG!';
+                } else {
+                    result = '🀄 MAHJONG KALAH';
+                }
+            }
+            else if (game === 'coin') {
+                // KOIN: head/tail
+                let coin = Math.random() < 0.5 ? 'head' : 'tail';
+                let tebak = prompt('Pilih (head/tail):', 'head');
+                if (tebak === coin) {
+                    win = bet * 2;
+                    result = '🪙 KOIN ' + coin + ' - MENANG!';
+                } else {
+                    result = '🪙 KOIN ' + coin + ' - KALAH';
+                }
+            }
+            else if (game === 'slot') {
+                // SLOT: 3 simbol
+                let s1 = Math.floor(Math.random() * 3);
+                let s2 = Math.floor(Math.random() * 3);
+                let s3 = Math.floor(Math.random() * 3);
+                if (s1 === s2 && s2 === s3) {
+                    win = bet * 10;
+                    result = '🎰 JACKPOT SLOT!';
+                } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+                    win = bet * 2;
+                    result = '🎰 SLOT MENANG!';
+                } else {
+                    result = '🎰 SLOT KALAH';
+                }
+            }
+            else if (game === 'poker') {
+                // POKER: banding kartu
+                let player = Math.random();
+                let dealer = Math.random();
+                if (player > dealer) {
+                    win = bet * 2;
+                    result = '🃏 POKER MENANG!';
+                } else {
+                    result = '🃏 POKER KALAH';
+                }
+            }
+            else if (game === 'roulette') {
+                // ROULETTE: tebak warna
+                let warna = Math.random() < 0.5 ? 'merah' : 'hitam';
+                let tebak = prompt('Pilih (merah/hitam):', 'merah');
+                if (tebak === warna) {
+                    win = bet * 2;
+                    result = '🎯 ROULETTE ' + warna + ' - MENANG!';
+                } else {
+                    result = '🎯 ROULETTE ' + warna + ' - KALAH';
+                }
+            }
+            else if (game === 'jackpot') {
+                // JACKPOT: chance kecil
+                if (Math.random() < 0.1) { // 10% menang
+                    win = bet * 20;
+                    result = '💎 JACKPOT!';
+                } else {
+                    result = '💎 JACKPOT KALAH';
+                }
+            }
+
+            // PROSES KEMENANGAN
+            if (win > 0) {
+                balance += win;
+                history.unshift('🎮 ' + result + ' +Rp ' + win.toLocaleString());
+                alert('🎉 ' + result + '\nMenang: Rp ' + win.toLocaleString());
+            } else {
+                history.unshift('🎮 ' + result + ' -Rp ' + bet.toLocaleString());
+                alert('😭 ' + result);
+            }
+
+            updateDisplay();
+        }
+
+        // INIT
+        updateDisplay();
+    </script>
+</body>
+</html>
