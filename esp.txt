@@ -1,0 +1,558 @@
+-- AUTO TELEPORT SYSTEM BY ZONE XD
+-- POCONG HUNTER GAME - PREMIUM EDITION
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+
+-- CONFIGURATION
+local Settings = {
+    AutoTeleportToItem = true,      -- AUTO TP KE BARANG
+    AutoTeleportToStorage = true,   -- AUTO TP KE TEMPAT PENYIMPANAN
+    TeleportDelay = 0.5,            -- DELAY TELEPORT
+    CollectionRange = 100,          -- JARAK DETEKSI BARANG
+    StorageLocation = Vector3.new(0, 10, 50),  -- LOKASI TEMPAT NYIMPEN
+    ShowTeleportEffect = true,       -- EFEK KEREN PAS TELEPORT
+    IgnorePocongWhenTeleport = true  -- HINDARI POCONG PAS TP
+}
+
+print("🔥 AUTO TELEPORT SYSTEM ACTIVATED! 🔥")
+print("👻 TELEPORT KE BARANG + TEMPAT OTOMATIS! 👻")
+
+-- VARIABLES
+local Items = {}
+local StorageLocations = {}
+local Pocongs = {}
+local CurrentTarget = nil
+local IsTeleporting = false
+local CollectedItems = 0
+
+-- CREATE FOLDERS
+local ItemFolder = Workspace:FindFirstChild("Items") or Instance.new("Folder")
+ItemFolder.Name = "Items"
+ItemFolder.Parent = Workspace
+
+local StorageFolder = Workspace:FindFirstChild("StoragePoints") or Instance.new("Folder")
+StorageFolder.Name = "StoragePoints"
+StorageFolder.Parent = Workspace
+
+local PocongFolder = Workspace:FindFirstChild("Pocongs") or Instance.new("Folder")
+PocongFolder.Name = "Pocongs"
+PocongFolder.Parent = Workspace
+
+-- ==================================================
+-- 1. CREATE STORAGE POINTS (TEMPAT NYIMPEN BARANG)
+-- ==================================================
+function CreateStoragePoints()
+    print("📍 MEMBUAT TEMPAT PENYIMPANAN...")
+    
+    local storageTypes = {
+        {name = "Storage_Common", color = BrickColor.new("Bright blue"), items = {"Coin", "Key"}},
+        {name = "Storage_Rare", color = BrickColor.new("Bright red"), items = {"Gem", "Crystal"}},
+        {name = "Storage_Epic", color = BrickColor.new("Bright violet"), items = {"Scroll", "Potion"}},
+        {name = "Storage_Legendary", color = BrickColor.new("Bright yellow"), items = {"Sword", "Shield"}},
+        {name = "Storage_Mythic", color = BrickColor.new("Bright orange"), items = {"Ring", "Amulet", "Map", "Compass"}}
+    }
+    
+    for i, storageData in ipairs(storageTypes) do  
+        local storage = Instance.new("Part")
+        storage.Name = storageData.name
+        storage.Size = Vector3.new(10, 2, 10)
+        storage.BrickColor = storageData.color
+        storage.Material = Enum.Material.Neon
+        storage.Anchored = true
+        storage.CanCollide = true  -- DIPERBAIKI: sebelumnya "GanCollide"
+        storage.Parent = StorageFolder
+        
+        -- POSISI MELINGKAR
+        local angle = (i - 1) * (2 * math.pi / #storageTypes)  
+        storage.Position = Vector3.new(  
+            math.cos(angle) * 30,  
+            5,  
+            math.sin(angle) * 30  
+        )  
+        
+        -- STORAGE SIGN  
+        local sign = Instance.new("Part")  
+        sign.Name = "Sign"  
+        sign.Size = Vector3.new(5, 1, 0.5)  
+        sign.BrickColor = BrickColor.new("White")  
+        sign.Material = Enum.Material.SmoothPlastic  
+        sign.Anchored = true  
+        sign.CanCollide = false  
+        sign.Parent = storage  
+        
+        -- WELD SIGN KE STORAGE  
+        local weld = Instance.new("Weld")  
+        weld.Part0 = storage  
+        weld.Part1 = sign  
+        weld.C1 = CFrame.new(0, 2, 4)  
+        weld.Parent = storage  
+        
+        -- BILLBOARD TEXT  
+        local billboard = Instance.new("BillboardGui")  
+        billboard.Parent = storage  
+        billboard.Size = UDim2.new(0, 200, 0, 50)  
+        billboard.StudsOffset = Vector3.new(0, 5, 0)  
+        billboard.AlwaysOnTop = true  
+        
+        local textLabel = Instance.new("TextLabel")  
+        textLabel.Parent = billboard  
+        textLabel.Size = UDim2.new(1, 0, 1, 0)  
+        textLabel.BackgroundTransparency = 1  
+        textLabel.Text = storageData.name  
+        textLabel.TextColor3 = storageData.color.Color  
+        textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)  
+        textLabel.TextStrokeTransparency = 0  
+        textLabel.TextScaled = true  
+        textLabel.Font = Enum.Font.GothamBlack  
+        
+        -- LIGHT EFFECT  
+        local light = Instance.new("PointLight")  
+        light.Parent = storage  
+        light.Brightness = 5  
+        light.Range = 20  
+        light.Color = storageData.color.Color  
+        
+        -- SIMPAN DATA  
+        table.insert(StorageLocations, {  
+            part = storage,  
+            items = storageData.items,  
+            color = storageData.color.Color  
+        })  
+    end  
+    
+    print("✅ " .. #StorageLocations .. " TEMPAT PENYIMPANAN DIBUAT!")  
+end  
+
+-- ==================================================  
+-- 2. AUTO SPAWN ITEMS  
+-- ==================================================  
+function SpawnItems()  
+    print("📦 MEMBUAT BARANG-BARANG...")  
+    
+    local itemTypes = {  
+        {name = "Coin", color = BrickColor.new("Bright yellow"), value = 10},  
+        {name = "Key", color = BrickColor.new("Bright red"), value = 20},  
+        {name = "Gem", color = BrickColor.new("Bright blue"), value = 30},  
+        {name = "Crystal", color = BrickColor.new("Cyan"), value = 40},  
+        {name = "Scroll", color = BrickColor.new("Brown"), value = 50},  
+        {name = "Potion", color = BrickColor.new("Bright green"), value = 60},  
+        {name = "Sword", color = BrickColor.new("Bright gray"), value = 100},  
+        {name = "Shield", color = BrickColor.new("Dark stone grey"), value = 80},  
+        {name = "Ring", color = BrickColor.new("Gold"), value = 150},  
+        {name = "Amulet", color = BrickColor.new("Bright violet"), value = 200},  
+        {name = "Map", color = BrickColor.new("Brown"), value = 75},  
+        {name = "Compass", color = BrickColor.new("Bright yellow"), value = 90}  
+    }  
+    
+    for i = 1, 50 do  
+        wait(0.1)  
+        local itemData = itemTypes[math.random(1, #itemTypes)]  
+        
+        local item = Instance.new("Part")  
+        item.Name = itemData.name  
+        item.Size = Vector3.new(2, 2, 2)  
+        item.BrickColor = itemData.color  
+        item.Material = Enum.Material.Neon  
+        item.Anchored = false  
+        item.CanCollide = false  
+        item.Parent = ItemFolder  
+        
+        -- POSISI RANDOM  
+        item.Position = Vector3.new(  
+            math.random(-80, 80),  
+            math.random(5, 30),  
+            math.random(-80, 80)  
+        )  
+        
+        -- VALUE TAG  
+        local valueTag = Instance.new("IntValue")  
+        valueTag.Name = "ItemValue"  
+        valueTag.Value = itemData.value  
+        valueTag.Parent = item  
+        
+        -- ITEM TYPE TAG  
+        local typeTag = Instance.new("StringValue")  
+        typeTag.Name = "ItemType"  
+        typeTag.Value = itemData.name  
+        typeTag.Parent = item  
+        
+        -- LIGHT EFFECT  
+        local light = Instance.new("PointLight")  
+        light.Parent = item  
+        light.Brightness = 3  
+        light.Range = 8  
+        light.Color = itemData.color.Color  
+        
+        -- FLOATING ANIMATION  
+        coroutine.wrap(function()  
+            local startY = item.Position.Y  
+            while item.Parent do  
+                item.Position = item.Position + Vector3.new(0, math.sin(tick() * 3) * 0.2, 0)  
+                wait(0.05)  
+            end  
+        end)()  
+        
+        -- SIMPAN DATA  
+        table.insert(Items, item)  
+    end  
+    
+    print("✅ " .. #Items .. " BARANG TELAH DISPAWN!")  
+end  
+
+-- ==================================================  
+-- 3. AUTO TELEPORT KE BARANG TERDEKAT  
+-- ==================================================  
+function TeleportToNearestItem()  
+    if IsTeleporting or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then  
+        return  
+    end  
+    
+    local character = LocalPlayer.Character  
+    local rootPart = character.HumanoidRootPart  
+    local currentPos = rootPart.Position  
+    
+    local nearestItem = nil  
+    local shortestDistance = Settings.CollectionRange  
+    
+    -- CARI BARANG TERDEKAT  
+    for _, item in pairs(ItemFolder:GetChildren()) do  
+        if item:IsA("Part") and item.Parent then  
+            local distance = (item.Position - currentPos).Magnitude  
+            if distance < shortestDistance then  
+                -- CEK APAKAH ADA POCONG DI DEKAT BARANG  
+                local pocongNearby = false  
+                if Settings.IgnorePocongWhenTeleport then  
+                    for _, pocong in pairs(PocongFolder:GetChildren()) do  
+                        if pocong:IsA("Model") and pocong:FindFirstChild("Body") then  
+                            local pocongPos = pocong:GetPrimaryPartCFrame().p  
+                            if (pocongPos - item.Position).Magnitude < 20 then  
+                                pocongNearby = true  
+                                break  
+                            end  
+                        end  
+                    end  
+                end  
+                
+                if not pocongNearby then  
+                    nearestItem = item  
+                    shortestDistance = distance  
+                end  
+            end  
+        end  
+    end  
+    
+    if nearestItem then  
+        CurrentTarget = nearestItem  
+        TeleportToTarget(nearestItem.Position + Vector3.new(0, 2, 0), "📦 " .. nearestItem.Name)  
+        return true  
+    end  
+    
+    return false  
+end  
+
+-- ==================================================  
+-- 4. AUTO TELEPORT KE TEMPAT PENYIMPANAN YANG SESUAI  
+-- ==================================================  
+function TeleportToStorage(item)  
+    if not item or not item.Parent then return false end  
+    
+    local itemType = item.Name  
+    local targetStorage = nil  
+    
+    -- CARI TEMPAT PENYIMPANAN YANG SESUAI  
+    for _, storage in ipairs(StorageLocations) do  
+        for _, allowedItem in ipairs(storage.items) do  
+            if itemType == allowedItem then  
+                targetStorage = storage  
+                break  
+            end  
+        end  
+        if targetStorage then break end  
+    end  
+    
+    if targetStorage then  
+        TeleportToTarget(targetStorage.part.Position + Vector3.new(0, 5, 0), "🏪 KE " .. targetStorage.part.Name)  
+        
+        -- DELAY LALU OTOMATIS SIMPAN BARANG  
+        wait(0.5)  
+        DepositItemToStorage(item, targetStorage)  
+        return true  
+    end  
+    
+    return false  
+end  
+
+-- ==================================================  
+-- 5. FUNCTION TELEPORT DENGAN EFEK KEREN  
+-- ==================================================  
+function TeleportToTarget(targetPos, label)  
+    if IsTeleporting or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then  
+        return  
+    end  
+    
+    IsTeleporting = true  
+    local character = LocalPlayer.Character  
+    local rootPart = character.HumanoidRootPart  
+    
+    -- EFEK SEBELUM TELEPORT  
+    if Settings.ShowTeleportEffect then  
+        -- BUAT BEAM EFFECT  
+        local beam = Instance.new("Part")  
+        beam.Name = "TeleportBeam"  
+        beam.Size = Vector3.new(1, 1, (rootPart.Position - targetPos).Magnitude)  
+        beam.BrickColor = BrickColor.new("Bright blue")  
+        beam.Material = Enum.Material.Neon  
+        beam.Anchored = true  
+        beam.CanCollide = false  
+        beam.Transparency = 0.3  
+        beam.Parent = Workspace  
+        
+        -- POSISI BEAM DI TENGAH  
+        local midPoint = (rootPart.Position + targetPos) / 2  
+        beam.CFrame = CFrame.lookAt(midPoint, targetPos) * CFrame.new(0, 0, -beam.Size.Z/2)  
+        
+        -- HAPUS BEAM SETELAH 1 DETIK  
+        game:GetService("Debris"):AddItem(beam, 1)  
+        
+        -- PARTICLE EFFECT  
+        local particle = Instance.new("ParticleEmitter")  
+        particle.Parent = rootPart  
+        particle.Texture = "rbxasset://textures/particles/sparkles_main.dds"  
+        particle.Rate = 100  
+        particle.Lifetime = NumberRange.new(1)  
+        particle.Speed = NumberRange.new(10)  
+        particle.Spread = Vector3.new(360, 360, 360)  
+        
+        game:GetService("Debris"):AddItem(particle, 1)  
+    end  
+    
+    -- NOTIFIKASI  
+    if label then  
+        local notification = Instance.new("BillboardGui")  
+        notification.Parent = rootPart  
+        notification.Size = UDim2.new(0, 200, 0, 50)  
+        notification.StudsOffset = Vector3.new(0, 5, 0)  
+        notification.AlwaysOnTop = true  
+        
+        local text = Instance.new("TextLabel")  
+        text.Parent = notification  
+        text.Size = UDim2.new(1, 0, 1, 0)  
+        text.BackgroundTransparency = 1  
+        text.Text = label  
+        text.TextColor3 = Color3.new(0, 1, 1)  
+        text.TextStrokeColor3 = Color3.new(0, 0, 0)  
+        text.TextStrokeTransparency = 0  
+        text.TextScaled = true  
+        text.Font = Enum.Font.GothamBlack  
+        
+        game:GetService("Debris"):AddItem(notification, 2)  
+    end  
+    
+    -- TELEPORT  
+    rootPart.CFrame = CFrame.new(targetPos)  
+    character:SetPrimaryPartCFrame(CFrame.new(targetPos))  
+    
+    -- EFEK SETELAH TELEPORT  
+    if Settings.ShowTeleportEffect then  
+        local explosion = Instance.new("Part")  
+        explosion.Name = "TeleportExplosion"  
+        explosion.Size = Vector3.new(2, 2, 2)  
+        explosion.BrickColor = BrickColor.new("Bright blue")  
+        explosion.Material = Enum.Material.Neon  
+        explosion.Anchored = true  
+        explosion.CanCollide = false  
+        explosion.Transparency = 0.5  
+        explosion.Position = targetPos  
+        explosion.Parent = Workspace  
+        
+        -- ANIMASI EXPLOSION  
+        coroutine.wrap(function()  
+            for i = 1, 10 do  
+                explosion.Size = explosion.Size * 1.2  
+                explosion.Transparency = explosion.Transparency + 0.05  
+                wait(0.05)  
+            end  
+            explosion:Destroy()  
+        end)()  
+    end  
+    
+    wait(Settings.TeleportDelay)  
+    IsTeleporting = false  
+end  
+
+-- ==================================================  
+-- 6. FUNCTION NYIMPEN BARANG KE STORAGE  
+-- ==================================================  
+function DepositItemToStorage(item, storage)  
+    if not item or not item.Parent or not storage then return end  
+    
+    local itemValue = item:FindFirstChild("ItemValue")  
+    local value = itemValue and itemValue.Value or 10  
+    
+    -- ANIMASI ITEM MASUK STORAGE  
+    local clone = item:Clone()  
+    clone.Anchored = true  
+    clone.CanCollide = false  
+    clone.Position = storage.part.Position + Vector3.new(0, 3, 0)  
+    clone.Parent = Workspace  
+    
+    -- ANIMASI ITEM KE STORAGE  
+    local tweenInfo = TweenInfo.new(  
+        0.5,  
+        Enum.EasingStyle.Quad,  
+        Enum.EasingDirection.Out  
+    )  
+    
+    local tween = TweenService:Create(  
+        clone,  
+        tweenInfo,  
+        {CFrame = storage.part.CFrame * CFrame.new(0, 1, 0)}  
+    )  
+    
+    tween:Play()  
+    tween.Completed:Connect(function()  
+        clone:Destroy()  
+    end)  
+    
+    -- HAPUS ITEM ASLI  
+    item:Destroy()  
+    
+    -- UPDATE SCORE  
+    CollectedItems = CollectedItems + 1  
+    print("✅ ITEM DISIMPAN! TOTAL: " .. CollectedItems .. " | NILAI: +" .. value)  
+    
+    -- EFEK LEDAKAN DI STORAGE  
+    local explosion = Instance.new("Part")  
+    explosion.Name = "StorageExplosion"  
+    explosion.Size = Vector3.new(1, 1, 1)  
+    explosion.BrickColor = storage.color  
+    explosion.Material = Enum.Material.Neon  
+    explosion.Anchored = true  
+    explosion.CanCollide = false  
+    explosion.Position = storage.part.Position + Vector3.new(0, 2, 0)  
+    explosion.Parent = Workspace  
+    
+    coroutine.wrap(function()  
+        for i = 1, 15 do  
+            explosion.Size = explosion.Size * 1.2  
+            explosion.Transparency = explosion.Transparency + 0.06  
+            wait(0.03)  
+        end  
+        explosion:Destroy()  
+    end)()  
+end  
+
+-- ==================================================  
+-- 7. AUTO COLLECT DETECTION  
+-- ==================================================  
+function CheckForItemCollection()  
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then  
+        return  
+    end  
+    
+    local rootPart = LocalPlayer.Character.HumanoidRootPart  
+    local currentPos = rootPart.Position  
+    
+    for _, item in pairs(ItemFolder:GetChildren()) do  
+        if item:IsA("Part") and item.Parent then  
+            local distance = (item.Position - currentPos).Magnitude  
+            
+            -- JIKA DEKAT DENGAN ITEM  
+            if distance < 5 then  
+                if Settings.AutoTeleportToStorage then  
+                    TeleportToStorage(item)  
+                end  
+                break  
+            end  
+        end  
+    end  
+end  
+
+-- ==================================================  
+-- 8. MAIN LOOP  
+-- ==================================================  
+function StartGame()  
+    print("🎮 MEMULAI POCONG HUNTER GAME...")  
+    
+    -- BUAT TEMPAT PENYIMPANAN  
+    CreateStoragePoints()  
+    
+    -- SPAWN ITEMS  
+    SpawnItems()  
+    
+    -- MAIN LOOP  
+    coroutine.wrap(function()  
+        while wait(2) do  
+            if Settings.AutoTeleportToItem then  
+                TeleportToNearestItem()  
+            end  
+        end  
+    end)()  
+    
+    -- LOOP CEK ITEM DI DEKAT  
+    coroutine.wrap(function()  
+        while wait(0.5) do  
+            CheckForItemCollection()  
+        end  
+    end)()  
+    
+    print("🔥 GAME SIAP! AUTO TELEPORT AKTIF! 🔥")  
+    print("📍 TELEPORT KE BARANG -> AMBIL -> TELEPORT KE TEMPAT")  
+end  
+
+-- ==================================================  
+-- 9. KEYBINDS  
+-- ==================================================  
+UserInputService.InputBegan:Connect(function(input, gameProcessed)  
+    if gameProcessed then return end  
+    
+    -- TELEPORT MANUAL KE BARANG (TEKAN T)  
+    if input.KeyCode == Enum.KeyCode.T then  
+        TeleportToNearestItem()  
+    end  
+    
+    -- TELEPORT MANUAL KE STORAGE (TEKAN Y)  
+    if input.KeyCode == Enum.KeyCode.Y then  
+        if CurrentTarget and CurrentTarget.Parent then  
+            TeleportToStorage(CurrentTarget)  
+        else  
+            print("❌ TIDAK ADA ITEM YANG DITARGET!")  
+        end  
+    end  
+    
+    -- RESPAWN ITEMS (TEKAN R)  
+    if input.KeyCode == Enum.KeyCode.R then  
+        for _, item in pairs(ItemFolder:GetChildren()) do  
+            item:Destroy()  
+        end  
+        Items = {}  
+        SpawnItems()  
+    end  
+end)  
+
+-- ==================================================  
+-- 10. START THE GAME  
+-- ==================================================  
+StartGame()  
+
+print([[  
+╔══════════════════════════════════════════════════╗  
+║   POCONG HUNTER - AUTO TELEPORT SYSTEM ACTIVE    ║  
+╠══════════════════════════════════════════════════╣  
+║   🔥 FITUR:                                      ║  
+║   ✅ AUTO TELEPORT KE BARANG TERDEKAT            ║  
+║   ✅ AUTO TELEPORT KE TEMPAT PENYIMPANAN         ║  
+║   ✅ AUTO DETECT KETEMU BARANG -> LANGSUNG TP    ║  
+║   ✅ EFEK TELEPORT KEREN                         ║  
+║   ✅ HINDARI POCONG OTOMATIS                      ║  
+╠══════════════════════════════════════════════════╣  
+║   ⌨️  KEYBINDS:                                   ║  
+║   T = TELEPORT MANUAL KE BARANG                   ║  
+║   Y = TELEPORT KE STORAGE (ITEM YANG DI TARGET)   ║  
+║   R = RESPAWN ITEMS            
