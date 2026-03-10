@@ -1,10 +1,10 @@
 --[[
-🔥 ZONE XD FLY SCRIPT MOBILE V3 🔥
-CARA PAKE:
-- Klik "TERBANG" = ON (mulai terbang)
-- Klik "TERBANG" lagi = OFF (turun ke tanah)
-- Klik "NAIK" = tambah kecepatan
-- Klik "TURUN" = kurang kecepatan
+🔥 ZONE XD FLY SCRIPT V4 🔥
+FITUR:
+- Terbang pake ANALOG (WASD) kaya main game biasa
+- Bisa gerak ke segala arah
+- Speed bisa diatur (NAIK/TURUN)
+- GA NGAWUR, GA GERAK OTOMATIS!
 --]]
 
 -- Ambil player
@@ -35,7 +35,7 @@ frame.BackgroundTransparency = 0.3
 frame.Position = UDim2.new(0.7, 0, 0.7, 0)
 frame.Size = UDim2.new(0, 150, 0, 150)
 frame.Active = true
-frame.Draggable = true  -- Bisa digeser kalo ganggu
+frame.Draggable = true
 
 -- Tombol TERBANG (ON/OFF)
 btnTerbang.Parent = frame
@@ -67,7 +67,7 @@ btnTurun.TextColor3 = Color3.new(0, 0, 0)
 btnTurun.Font = Enum.Font.SourceSansBold
 btnTurun.TextSize = 18
 
--- Label buat nunjukkin kecepatan
+-- Label kecepatan
 txtSpeed.Parent = frame
 txtSpeed.Size = UDim2.new(0, 140, 0, 30)
 txtSpeed.Position = UDim2.new(0, 5, 0, 95)
@@ -77,7 +77,10 @@ txtSpeed.TextColor3 = Color3.new(1, 1, 0)
 txtSpeed.Font = Enum.Font.SourceSansBold
 txtSpeed.TextSize = 22
 
--- FUNGSI TERBANG
+-- Ambil input service
+local uis = game:GetService("UserInputService")
+
+-- FUNGSI TERBANG (PAKE ANALOG - GA NGAWUR!)
 local function mulaiTerbang()
     humanoid.PlatformStand = true
     loopTerbang = game:GetService("RunService").RenderStepped:Connect(function()
@@ -86,15 +89,42 @@ local function mulaiTerbang()
             return
         end
         
-        -- Gerak maju terus (biar gak diam di tempat)
-        local arah = workspace.CurrentCamera.CFrame.LookVector
-        character:SetPrimaryPartCFrame(character.PrimaryPart.CFrame + (arah * kecepatan * 0.1))
+        -- Hitung arah berdasarkan tombol yang ditekan
+        local moveDir = Vector3.new(0, 0, 0)
+        
+        -- WASD untuk gerak (ANALOG VIRTUAL)
+        if uis:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + workspace.CurrentCamera.CFrame.LookVector
+        end
+        if uis:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - workspace.CurrentCamera.CFrame.LookVector
+        end
+        if uis:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - workspace.CurrentCamera.CFrame.RightVector
+        end
+        if uis:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + workspace.CurrentCamera.CFrame.RightVector
+        end
+        
+        -- Naik/Turun
+        if uis:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if uis:IsKeyDown(Enum.KeyCode.LeftControl) or uis:IsKeyDown(Enum.KeyCode.C) then
+            moveDir = moveDir + Vector3.new(0, -1, 0)
+        end
+        
+        -- Terap kalo ga gerak (biar ga jatuh)
+        if moveDir.Magnitude > 0 then
+            moveDir = moveDir.Unit * kecepatan * 0.1
+            character:SetPrimaryPartCFrame(character.PrimaryPart.CFrame + moveDir)
+        end
     end)
 end
 
--- KETIKA TOMBOL TERBANG DI KLIK
+-- Klik TERBANG
 btnTerbang.MouseButton1Click:Connect(function()
-    terbang = not terbang  -- ganti status (on/off)
+    terbang = not terbang
     
     if terbang then
         btnTerbang.Text = "🟢 TERBANG"
@@ -108,19 +138,19 @@ btnTerbang.MouseButton1Click:Connect(function()
     end
 end)
 
--- KETIKA TOMBOL NAIK DI KLIK
+-- Klik NAIK
 btnNaik.MouseButton1Click:Connect(function()
     kecepatan = kecepatan + 10
     txtSpeed.Text = "⚡ " .. kecepatan
 end)
 
--- KETIKA TOMBOL TURUN DI KLIK
+-- Klik TURUN
 btnTurun.MouseButton1Click:Connect(function()
-    kecepatan = math.max(10, kecepatan - 10)  -- minimal 10 biar gak 0
+    kecepatan = math.max(10, kecepatan - 10)
     txtSpeed.Text = "⚡ " .. kecepatan
 end)
 
--- Biar karakter selalu update (antisipasi mati)
+-- Update karakter kalo mati
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
     humanoid = character:WaitForChild("Humanoid")
