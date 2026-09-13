@@ -37,6 +37,120 @@ screenGui.IgnoreGuiInset = false -- FIX: biar otomatis di bawah topbar Roblox, g
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
+-- ============ KEY HARIAN (kunci ganti tiap hari) ============
+-- Nama hari harus diketik sesuai hari ini (Senin, Selasa, Rabu, dst)
+-- Catatan: os.date di Roblox biasanya berbasis waktu server/UTC, jadi kalau
+-- lagi mepet tengah malam ada kemungkinan beda 1 hari sama jam HP kamu.
+local DAY_NAMES = {
+    [1] = "Minggu", [2] = "Senin", [3] = "Selasa", [4] = "Rabu",
+    [5] = "Kamis", [6] = "Jumat", [7] = "Sabtu",
+}
+local todayName = DAY_NAMES[tonumber(os.date("*t").wday)] or "Senin"
+
+local lockOverlay = Instance.new("Frame")
+lockOverlay.Name = "LockOverlay"
+lockOverlay.Size = UDim2.new(1, 0, 1, 0)
+lockOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+lockOverlay.BackgroundTransparency = 0.15
+lockOverlay.ZIndex = 100
+lockOverlay.Active = true
+lockOverlay.Parent = screenGui
+
+local lockBox = Instance.new("Frame")
+lockBox.Size = UDim2.new(0, 220, 0, 150)
+lockBox.AnchorPoint = Vector2.new(0.5, 0.5)
+lockBox.Position = UDim2.new(0.5, 0, 0.5, 0)
+lockBox.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+lockBox.ZIndex = 101
+lockBox.Parent = lockOverlay
+
+local lockBoxCorner = Instance.new("UICorner")
+lockBoxCorner.CornerRadius = UDim.new(0, 10)
+lockBoxCorner.Parent = lockBox
+
+local lockTitle = Instance.new("TextLabel")
+lockTitle.Size = UDim2.new(1, -16, 0, 24)
+lockTitle.Position = UDim2.new(0, 8, 0, 10)
+lockTitle.BackgroundTransparency = 1
+lockTitle.Text = "Masukkan Key Hari Ini"
+lockTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockTitle.Font = Enum.Font.GothamBold
+lockTitle.TextSize = 14
+lockTitle.ZIndex = 102
+lockTitle.Parent = lockBox
+
+local lockHint = Instance.new("TextLabel")
+lockHint.Size = UDim2.new(1, -16, 0, 18)
+lockHint.Position = UDim2.new(0, 8, 0, 34)
+lockHint.BackgroundTransparency = 1
+lockHint.Text = "Key = nama hari ini (contoh: Senin)"
+lockHint.TextColor3 = Color3.fromRGB(160, 160, 170)
+lockHint.Font = Enum.Font.Gotham
+lockHint.TextSize = 11
+lockHint.ZIndex = 102
+lockHint.Parent = lockBox
+
+local lockInput = Instance.new("TextBox")
+lockInput.Size = UDim2.new(1, -16, 0, 32)
+lockInput.Position = UDim2.new(0, 8, 0, 58)
+lockInput.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+lockInput.Text = ""
+lockInput.PlaceholderText = "Ketik nama hari..."
+lockInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockInput.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
+lockInput.Font = Enum.Font.Gotham
+lockInput.TextSize = 14
+lockInput.ClearTextOnFocus = false
+lockInput.ZIndex = 102
+lockInput.Parent = lockBox
+
+local lockInputCorner = Instance.new("UICorner")
+lockInputCorner.CornerRadius = UDim.new(0, 6)
+lockInputCorner.Parent = lockInput
+
+local lockError = Instance.new("TextLabel")
+lockError.Size = UDim2.new(1, -16, 0, 16)
+lockError.Position = UDim2.new(0, 8, 0, 92)
+lockError.BackgroundTransparency = 1
+lockError.Text = ""
+lockError.TextColor3 = Color3.fromRGB(255, 100, 100)
+lockError.Font = Enum.Font.Gotham
+lockError.TextSize = 11
+lockError.ZIndex = 102
+lockError.Parent = lockBox
+
+local lockSubmitBtn = Instance.new("TextButton")
+lockSubmitBtn.Size = UDim2.new(1, -16, 0, 28)
+lockSubmitBtn.Position = UDim2.new(0, 8, 0, 112)
+lockSubmitBtn.BackgroundColor3 = Color3.fromRGB(80, 130, 90)
+lockSubmitBtn.Text = "Buka"
+lockSubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockSubmitBtn.Font = Enum.Font.GothamBold
+lockSubmitBtn.TextSize = 13
+lockSubmitBtn.ZIndex = 102
+lockSubmitBtn.Parent = lockBox
+
+local lockSubmitCorner = Instance.new("UICorner")
+lockSubmitCorner.CornerRadius = UDim.new(0, 6)
+lockSubmitCorner.Parent = lockSubmitBtn
+
+local function tryUnlock()
+    local guess = lockInput.Text:gsub("^%s+", ""):gsub("%s+$", "") -- trim spasi
+    if guess:lower() == todayName:lower() then
+        lockOverlay:Destroy()
+    else
+        lockError.Text = "Key salah! Hari ini: coba lagi"
+        lockInput.Text = ""
+    end
+end
+
+lockSubmitBtn.MouseButton1Click:Connect(tryUnlock)
+lockInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        tryUnlock()
+    end
+end)
+
 -- Frame utama (tinggi FIXED, isi di dalamnya scroll)
 local PANEL_WIDTH = 190
 local PANEL_HEIGHT = 230 -- FIX: tinggi tetap, gak nambah panjang terus
@@ -260,6 +374,29 @@ local hopServerCorner = Instance.new("UICorner")
 hopServerCorner.CornerRadius = UDim.new(0, 6)
 hopServerCorner.Parent = hopServerBtn
 
+-- Daftar umur akun Roblox pemain lain (data publik, bukan cheat/ESP)
+local playerListTitle = Instance.new("TextLabel")
+playerListTitle.Size = UDim2.new(1, 0, 0, 16)
+playerListTitle.BackgroundTransparency = 1
+playerListTitle.Text = "Umur Akun Pemain:"
+playerListTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+playerListTitle.Font = Enum.Font.GothamBold
+playerListTitle.TextSize = 11
+playerListTitle.TextXAlignment = Enum.TextXAlignment.Left
+playerListTitle.LayoutOrder = nextOrder()
+playerListTitle.Parent = statsHolder
+
+local playerListFrame = Instance.new("Frame")
+playerListFrame.Size = UDim2.new(1, 0, 0, 0)
+playerListFrame.AutomaticSize = Enum.AutomaticSize.Y
+playerListFrame.BackgroundTransparency = 1
+playerListFrame.LayoutOrder = nextOrder()
+playerListFrame.Parent = statsHolder
+
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 2)
+playerListLayout.Parent = playerListFrame
+
 -- Tombol Auto Low Graphics
 local autoGfxBtn = Instance.new("TextButton")
 autoGfxBtn.Size = UDim2.new(1, 0, 0, 22)
@@ -274,6 +411,21 @@ autoGfxBtn.Parent = statsHolder
 local autoGfxCorner = Instance.new("UICorner")
 autoGfxCorner.CornerRadius = UDim.new(0, 6)
 autoGfxCorner.Parent = autoGfxBtn
+
+-- Tombol Zoom Unlimited (zoom out sejauh mungkin, gak dibatasi default game)
+local zoomBtn = Instance.new("TextButton")
+zoomBtn.Size = UDim2.new(1, 0, 0, 22)
+zoomBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+zoomBtn.Text = "Zoom Unlimited: OFF"
+zoomBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+zoomBtn.Font = Enum.Font.GothamBold
+zoomBtn.TextSize = 11
+zoomBtn.LayoutOrder = nextOrder()
+zoomBtn.Parent = statsHolder
+
+local zoomBtnCorner = Instance.new("UICorner")
+zoomBtnCorner.CornerRadius = UDim.new(0, 6)
+zoomBtnCorner.Parent = zoomBtn
 
 -- ============ BULATAN MINIMIZE ("M") ============
 local bubble = Instance.new("Frame")
@@ -453,6 +605,51 @@ local function resetEffectsOff()
     colorCorrect.Brightness = 0
 end
 
+-- ============ SOUND EFFECT PER PRESET ============
+-- Sound klik/swoosh pas ganti preset (pakai suara bawaan Roblox, dijamin ada & pasti bunyi)
+local SoundService = game:GetService("SoundService")
+
+local switchClickSound = Instance.new("Sound")
+switchClickSound.Name = "PM_SwitchClick"
+switchClickSound.SoundId = "rbxasset://sounds/button.wav"
+switchClickSound.Volume = 0.5
+switchClickSound.Parent = SoundService
+
+-- Ambience per preset (loop). SoundId sengaja dikosongkan/placeholder karena
+-- Asset ID di Roblox Library gampang kena moderasi/dihapus -- kalau aku asal
+-- comot nomor, resikonya malah gak bunyi atau ke-report. Silakan isi sendiri
+-- SoundId di bawah ini dengan ID dari Toolbox (cari: "rain ambience",
+-- "wind loop", "night crickets", "retro chiptune", dst) sesuai selera kamu.
+local ambienceSound = Instance.new("Sound")
+ambienceSound.Name = "PM_Ambience"
+ambienceSound.Looped = true
+ambienceSound.Volume = 0.4
+ambienceSound.Parent = SoundService
+
+local presetAmbienceIds = {
+    ["Ringan (Low)"] = "", -- kosong = senyap (biar hemat performa)
+    ["HD Default"] = "",
+    ["Retro"] = "", -- isi sendiri ID chiptune/8-bit dari Toolbox Studio (tab Audio)
+    ["Sunset"] = "", -- isi sendiri ID ambience sore/burung dari Toolbox Studio
+    ["Salju"] = "", -- isi sendiri ID angin salju dari Toolbox Studio
+    ["Malam"] = "", -- isi sendiri ID jangkrik malam dari Toolbox Studio
+    ["Hujan"] = "1516791621", -- suara hujan resmi dari contoh dokumentasi Roblox (Add 3D Audio)
+}
+
+local function playPresetAmbience(presetName)
+    local id = presetAmbienceIds[presetName]
+    if id and id ~= "" then
+        ambienceSound.SoundId = "rbxassetid://" .. id
+        ambienceSound:Play()
+    else
+        ambienceSound:Stop()
+    end
+end
+
+local function playSwitchClick()
+    switchClickSound:Play()
+end
+
 local presets = {
     {
         name = "Ringan (Low)",
@@ -474,6 +671,8 @@ local presets = {
             pcall(function() settingsSvc.Rendering.QualityLevel = Enum.QualityLevel.Level21 end)
             Lighting.Technology = Enum.Technology.Future
             Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
             atmosphere.Density = 0.3
             atmosphere.Haze = 1
             atmosphere.Color = Color3.fromRGB(199, 199, 199)
@@ -481,12 +680,17 @@ local presets = {
             atmosphere.Glare = 0.1
             resetEffectsOff()
             bloom.Enabled = true
-            bloom.Intensity = 0.4
+            bloom.Intensity = 0.6
+            bloom.Size = 24
             sunRays.Enabled = true
-            sunRays.Intensity = 0.15
+            sunRays.Intensity = 0.2
+            sunRays.Spread = 0.6
             colorCorrect.Enabled = true
-            colorCorrect.Saturation = 0.05
-            colorCorrect.Contrast = 0.05
+            colorCorrect.Saturation = 0.1
+            colorCorrect.Contrast = 0.1
+            depthOfField.Enabled = true
+            depthOfField.FarIntensity = 0.15
+            depthOfField.InFocusRadius = 60
             Lighting.ClockTime = 14
             Lighting.Brightness = 3
             Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
@@ -516,6 +720,8 @@ local presets = {
             pcall(function() settingsSvc.Rendering.QualityLevel = Enum.QualityLevel.Level21 end)
             Lighting.Technology = Enum.Technology.Future
             Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
             atmosphere.Density = 0.4
             atmosphere.Haze = 2
             atmosphere.Color = Color3.fromRGB(255, 170, 120)
@@ -523,12 +729,15 @@ local presets = {
             atmosphere.Glare = 0.3
             resetEffectsOff()
             bloom.Enabled = true
-            bloom.Intensity = 0.7
+            bloom.Intensity = 0.9
+            bloom.Size = 32
             sunRays.Enabled = true
-            sunRays.Intensity = 0.35
+            sunRays.Intensity = 0.5
+            sunRays.Spread = 0.8
             colorCorrect.Enabled = true
             colorCorrect.TintColor = Color3.fromRGB(255, 200, 160)
-            colorCorrect.Saturation = 0.15
+            colorCorrect.Saturation = 0.2
+            colorCorrect.Contrast = 0.1
             Lighting.ClockTime = 18
             Lighting.Brightness = 2
             Lighting.OutdoorAmbient = Color3.fromRGB(180, 120, 90)
@@ -540,6 +749,8 @@ local presets = {
             pcall(function() settingsSvc.Rendering.QualityLevel = Enum.QualityLevel.Level21 end)
             Lighting.Technology = Enum.Technology.Future
             Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
             atmosphere.Density = 0.5
             atmosphere.Haze = 3
             atmosphere.Color = Color3.fromRGB(240, 245, 255)
@@ -547,11 +758,14 @@ local presets = {
             atmosphere.Glare = 0.1
             resetEffectsOff()
             bloom.Enabled = true
-            bloom.Intensity = 0.3
+            bloom.Intensity = 0.5
+            bloom.Size = 20
             colorCorrect.Enabled = true
             colorCorrect.TintColor = Color3.fromRGB(220, 235, 255)
-            colorCorrect.Brightness = 0.05
+            colorCorrect.Brightness = 0.08
             colorCorrect.Saturation = -0.1
+            depthOfField.Enabled = true
+            depthOfField.FarIntensity = 0.1
             Lighting.ClockTime = 12
             Lighting.Brightness = 3
             Lighting.OutdoorAmbient = Color3.fromRGB(200, 210, 220)
@@ -563,6 +777,8 @@ local presets = {
             pcall(function() settingsSvc.Rendering.QualityLevel = Enum.QualityLevel.Level21 end)
             Lighting.Technology = Enum.Technology.Future
             Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
             atmosphere.Density = 0.35
             atmosphere.Haze = 1
             atmosphere.Color = Color3.fromRGB(80, 90, 120)
@@ -570,11 +786,12 @@ local presets = {
             atmosphere.Glare = 0
             resetEffectsOff()
             bloom.Enabled = true
-            bloom.Intensity = 0.5
+            bloom.Intensity = 0.7
+            bloom.Size = 28
             colorCorrect.Enabled = true
             colorCorrect.TintColor = Color3.fromRGB(180, 190, 255)
             colorCorrect.Brightness = -0.1
-            colorCorrect.Contrast = 0.1
+            colorCorrect.Contrast = 0.15
             Lighting.ClockTime = 0
             Lighting.Brightness = 1
             Lighting.OutdoorAmbient = Color3.fromRGB(40, 45, 70)
@@ -586,6 +803,8 @@ local presets = {
             pcall(function() settingsSvc.Rendering.QualityLevel = Enum.QualityLevel.Level21 end)
             Lighting.Technology = Enum.Technology.Future
             Lighting.GlobalShadows = true
+            Lighting.EnvironmentDiffuseScale = 1
+            Lighting.EnvironmentSpecularScale = 1
             atmosphere.Density = 0.6
             atmosphere.Haze = 4
             atmosphere.Color = Color3.fromRGB(130, 140, 150)
@@ -597,7 +816,8 @@ local presets = {
             colorCorrect.Saturation = -0.25
             colorCorrect.Brightness = -0.05
             depthOfField.Enabled = true
-            depthOfField.FarIntensity = 0.3
+            depthOfField.FarIntensity = 0.35
+            depthOfField.InFocusRadius = 40
             Lighting.ClockTime = 15
             Lighting.Brightness = 1.5
             Lighting.OutdoorAmbient = Color3.fromRGB(110, 115, 125)
@@ -611,6 +831,8 @@ local function applyPresetByIndex(index)
     currentPresetIndex = index
     presets[index].apply()
     presetBtn.Text = "Preset: " .. presets[index].name
+    playSwitchClick()
+    playPresetAmbience(presets[index].name)
 end
 
 presetBtn.MouseButton1Click:Connect(function()
@@ -651,6 +873,24 @@ local function checkAutoGraphics(fps)
         applyPresetByIndex(presetBeforeAuto)
     end
 end
+
+-- ============ ZOOM UNLIMITED ============
+local originalMaxZoom = player.CameraMaxZoomDistance
+local zoomUnlimited = false
+local ZOOM_UNLIMITED_VALUE = 100000 -- jauh lebih dari cukup, dijaga finite biar kamera gak error
+
+zoomBtn.MouseButton1Click:Connect(function()
+    zoomUnlimited = not zoomUnlimited
+    if zoomUnlimited then
+        player.CameraMaxZoomDistance = ZOOM_UNLIMITED_VALUE
+        zoomBtn.Text = "Zoom Unlimited: ON"
+        zoomBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 90)
+    else
+        player.CameraMaxZoomDistance = originalMaxZoom
+        zoomBtn.Text = "Zoom Unlimited: OFF"
+        zoomBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    end
+end)
 
 -- ============ FAVORIT PRESET (tersimpan selama sesi ini berjalan) ============
 local favoritePresetIndex = nil
@@ -715,6 +955,44 @@ local function formatAccountAge(days)
     end
 end
 accountAgeLabel.Text = "Main Roblox: " .. formatAccountAge(player.AccountAge)
+
+-- ============ DAFTAR UMUR AKUN PEMAIN LAIN ============
+-- AccountAge itu properti PUBLIK yang direplikasi Roblox ke semua client,
+-- bukan data rahasia/hidden -- makanya ini bisa dibaca tanpa server script,
+-- beda sama FPS/ping yang emang cuma ada di device masing-masing.
+local playerRowLabels = {}
+
+local function refreshPlayerList()
+    -- Bersihin label lama
+    for _, lbl in pairs(playerRowLabels) do
+        lbl:Destroy()
+    end
+    playerRowLabels = {}
+
+    for _, ply in ipairs(Players:GetPlayers()) do
+        local row = Instance.new("TextLabel")
+        row.Size = UDim2.new(1, 0, 0, 16)
+        row.BackgroundTransparency = 1
+        row.Text = ply.Name .. ": " .. formatAccountAge(ply.AccountAge)
+        row.TextColor3 = Color3.fromRGB(190, 190, 200)
+        row.Font = Enum.Font.Gotham
+        row.TextSize = 11
+        row.TextXAlignment = Enum.TextXAlignment.Left
+        row.TextTruncate = Enum.TextTruncate.AtEnd
+        row.Parent = playerListFrame
+        table.insert(playerRowLabels, row)
+    end
+end
+
+refreshPlayerList()
+Players.PlayerAdded:Connect(refreshPlayerList)
+Players.PlayerRemoving:Connect(refreshPlayerList)
+task.spawn(function()
+    while true do
+        task.wait(5)
+        refreshPlayerList() -- refresh berkala biar umur akun kebaca kalau ada yg baru masuk
+    end
+end)
 
 -- ============ INFO SERVER ============
 local shortJobId = game.JobId ~= "" and string.sub(game.JobId, 1, 8) or "Studio"
