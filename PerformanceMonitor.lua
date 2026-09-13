@@ -1,19 +1,20 @@
 --[[
-    PERFORMANCE MONITOR GUI - Roblox LocalScript (v2 - Compact + Preset Grafik)
+    PERFORMANCE MONITOR + AVATAR CONFIG - Roblox LocalScript (v3 - Tab Rapi)
     ------------------------------------------------
-    Fitur:
-    - FPS, Ping, Memory, Status koneksi, jumlah player, waktu main
-    - Grafik mini history FPS
-    - Auto Low Graphics kalau FPS drop
-    - Preset Grafik: Ringan, HD Default, Retro, Sunset, Salju, Malam, Hujan
-    - Panel bisa di-drag, di-minimize jadi bulatan "M"
-    - Keybind RightShift buat show/hide panel
-    - FIX: panel sekarang di bawah topbar Roblox (gak ketutupan lagi)
-    - FIX: panel dibikin compact + scrollable biar gak kepanjangan
+    Sekarang dibagi 3 TAB biar rapi:
+    - Tab "Stats"  : FPS, Ping, Memory, Status, Players, Waktu Main, Device,
+                      Umur akun kamu + pemain lain, Server info, Ganti Server
+    - Tab "Grafik" : Preset grafik (Ringan/HD/Retro/Sunset/Salju/Malam/Hujan),
+                      Auto Low Graphics, Favorit preset, Zoom Unlimited
+    - Tab "Avatar" : Ganti outfit/item, tiru avatar orang lain, ukuran
+                      (Tiny/Normal/Big/Long), style "Gaya Claude"
+
+    Fitur umum: drag panel, minimize jadi bulatan "M", keybind RightShift
+    buat show/hide, notifikasi toast kalau FPS anjlok, key harian (nama hari).
 
     CARA PAKAI:
     1. Taruh script ini di StarterPlayer > StarterPlayerScripts
-    2. Pastikan tipe script-nya "LocalScript"
+    2. Tipe script: LocalScript
 --]]
 
 local Players = game:GetService("Players")
@@ -24,6 +25,7 @@ local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
+local SoundService = game:GetService("SoundService")
 local settingsSvc = settings()
 
 local player = Players.LocalPlayer
@@ -33,14 +35,11 @@ local playerGui = player:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PerformanceMonitor"
 screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = false -- FIX: biar otomatis di bawah topbar Roblox, gak ketutupan lagi
+screenGui.IgnoreGuiInset = false -- biar otomatis di bawah topbar Roblox
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 -- ============ KEY HARIAN (kunci ganti tiap hari) ============
--- Nama hari harus diketik sesuai hari ini (Senin, Selasa, Rabu, dst)
--- Catatan: os.date di Roblox biasanya berbasis waktu server/UTC, jadi kalau
--- lagi mepet tengah malam ada kemungkinan beda 1 hari sama jam HP kamu.
 local DAY_NAMES = {
     [1] = "Minggu", [2] = "Senin", [3] = "Selasa", [4] = "Rabu",
     [5] = "Kamis", [6] = "Jumat", [7] = "Sabtu",
@@ -135,30 +134,28 @@ lockSubmitCorner.CornerRadius = UDim.new(0, 6)
 lockSubmitCorner.Parent = lockSubmitBtn
 
 local function tryUnlock()
-    local guess = lockInput.Text:gsub("^%s+", ""):gsub("%s+$", "") -- trim spasi
+    local guess = lockInput.Text:gsub("^%s+", ""):gsub("%s+$", "")
     if guess:lower() == todayName:lower() then
         lockOverlay:Destroy()
     else
-        lockError.Text = "Key salah! Hari ini: coba lagi"
+        lockError.Text = "Key salah! Coba lagi"
         lockInput.Text = ""
     end
 end
 
 lockSubmitBtn.MouseButton1Click:Connect(tryUnlock)
 lockInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        tryUnlock()
-    end
+    if enterPressed then tryUnlock() end
 end)
 
--- Frame utama (tinggi FIXED, isi di dalamnya scroll)
-local PANEL_WIDTH = 190
-local PANEL_HEIGHT = 230 -- FIX: tinggi tetap, gak nambah panjang terus
+-- ============ FRAME UTAMA ============
+local PANEL_WIDTH = 200
+local PANEL_HEIGHT = 260
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
-mainFrame.Position = UDim2.new(0, 16, 0, 10) -- posisi aman, sudah di bawah topbar karena IgnoreGuiInset=false
+mainFrame.Position = UDim2.new(0, 16, 0, 10)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.BorderSizePixel = 0
@@ -175,7 +172,7 @@ stroke.Color = Color3.fromRGB(80, 80, 90)
 stroke.Thickness = 1
 stroke.Parent = mainFrame
 
--- Header (drag + tombol minimize) -- ZIndex tinggi biar selalu bisa dipencet
+-- Header (drag + minimize)
 local header = Instance.new("Frame")
 header.Name = "Header"
 header.Size = UDim2.new(1, 0, 0, 28)
@@ -200,7 +197,6 @@ title.TextSize = 14
 title.ZIndex = 6
 title.Parent = header
 
--- Tombol minimize (diperbesar area klik + ZIndex tinggi biar PASTI kepencet)
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 28, 0, 28)
 minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
@@ -210,222 +206,93 @@ minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 minimizeBtn.Font = Enum.Font.GothamBold
 minimizeBtn.TextSize = 20
 minimizeBtn.ZIndex = 10
-minimizeBtn.AutoButtonColor = true
 minimizeBtn.Parent = header
 
 local minBtnCorner = Instance.new("UICorner")
 minBtnCorner.CornerRadius = UDim.new(0, 6)
 minBtnCorner.Parent = minimizeBtn
 
--- ============ ISI (SCROLLABLE) ============
-local statsHolder = Instance.new("ScrollingFrame")
-statsHolder.Size = UDim2.new(1, -12, 1, -34)
-statsHolder.Position = UDim2.new(0, 6, 0, 30)
-statsHolder.BackgroundTransparency = 1
-statsHolder.BorderSizePixel = 0
-statsHolder.ScrollBarThickness = 4
-statsHolder.ScrollBarImageColor3 = Color3.fromRGB(150, 150, 160)
-statsHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-statsHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-statsHolder.Parent = mainFrame
+-- ============ TAB BAR ============
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -12, 0, 24)
+tabBar.Position = UDim2.new(0, 6, 0, 32)
+tabBar.BackgroundTransparency = 1
+tabBar.Parent = mainFrame
 
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 4)
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Parent = statsHolder
+local tabButtons = {}
+local tabFrames = {}
+
+local function createTab(name, order, widthFraction)
+    local btn = Instance.new("TextButton")
+    btn.Name = "Tab_" .. name
+    btn.Size = UDim2.new(widthFraction, -3, 1, 0)
+    btn.Position = UDim2.new((order - 1) * widthFraction, 0, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(200, 200, 210)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Parent = tabBar
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    local content = Instance.new("ScrollingFrame")
+    content.Name = "Content_" .. name
+    content.Size = UDim2.new(1, -12, 1, -62)
+    content.Position = UDim2.new(0, 6, 0, 60)
+    content.BackgroundTransparency = 1
+    content.BorderSizePixel = 0
+    content.ScrollBarThickness = 4
+    content.ScrollBarImageColor3 = Color3.fromRGB(150, 150, 160)
+    content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    content.Visible = false
+    content.Parent = mainFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = content
+
+    tabButtons[name] = btn
+    tabFrames[name] = content
+    return btn, content
+end
+
+createTab("Stats", 1, 1 / 3)
+createTab("Grafik", 2, 1 / 3)
+createTab("Avatar", 3, 1 / 3)
+
+local activeTab = "Stats"
+local function switchTab(name)
+    activeTab = name
+    for tabName, frame in pairs(tabFrames) do
+        frame.Visible = (tabName == name)
+        tabButtons[tabName].BackgroundColor3 = (tabName == name)
+            and Color3.fromRGB(80, 100, 150) or Color3.fromRGB(45, 45, 55)
+    end
+end
+
+for name, btn in pairs(tabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        switchTab(name)
+    end)
+end
+
+switchTab("Stats")
+
+local statsTab = tabFrames["Stats"]
+local grafikTab = tabFrames["Grafik"]
+local avatarTab = tabFrames["Avatar"]
 
 local orderCounter = 0
 local function nextOrder()
     orderCounter = orderCounter + 1
     return orderCounter
 end
-
-local function createStatLabel(name)
-    local lbl = Instance.new("TextLabel")
-    lbl.Name = name
-    lbl.Size = UDim2.new(1, 0, 0, 18)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name .. ": --"
-    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.LayoutOrder = nextOrder()
-    lbl.Parent = statsHolder
-    return lbl
-end
-
-local fpsLabel = createStatLabel("FPS")
-local pingLabel = createStatLabel("Ping")
-local memLabel = createStatLabel("Memory")
-local statusLabel = createStatLabel("Status")
-local playersLabel = createStatLabel("Players")
-local timeLabel = createStatLabel("Waktu Main")
-local deviceLabel = createStatLabel("Device")
-local accountAgeLabel = createStatLabel("Main Roblox")
-local serverLabel = createStatLabel("Server")
-
--- Mini grafik history FPS
-local graphFrame = Instance.new("Frame")
-graphFrame.Size = UDim2.new(1, 0, 0, 40)
-graphFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-graphFrame.BorderSizePixel = 0
-graphFrame.LayoutOrder = nextOrder()
-graphFrame.Parent = statsHolder
-
-local graphCorner = Instance.new("UICorner")
-graphCorner.CornerRadius = UDim.new(0, 6)
-graphCorner.Parent = graphFrame
-
-local GRAPH_BARS = 18
-local fpsHistory = {}
-local graphBars = {}
-
-for i = 1, GRAPH_BARS do
-    fpsHistory[i] = 0
-    local bar = Instance.new("Frame")
-    bar.AnchorPoint = Vector2.new(0, 1)
-    bar.Position = UDim2.new((i - 1) / GRAPH_BARS, 1, 1, -2)
-    bar.Size = UDim2.new(1 / GRAPH_BARS, -2, 0, 2)
-    bar.BackgroundColor3 = Color3.fromRGB(100, 255, 120)
-    bar.BorderSizePixel = 0
-    bar.Parent = graphFrame
-    graphBars[i] = bar
-end
-
-local function updateGraph(fps)
-    table.remove(fpsHistory, 1)
-    table.insert(fpsHistory, fps)
-    for i, value in ipairs(fpsHistory) do
-        local heightScale = math.clamp(value / 60, 0.03, 1)
-        local bar = graphBars[i]
-        bar.Size = UDim2.new(1 / GRAPH_BARS, -2, heightScale, 0)
-        if value >= 50 then
-            bar.BackgroundColor3 = Color3.fromRGB(100, 255, 120)
-        elseif value >= 25 then
-            bar.BackgroundColor3 = Color3.fromRGB(255, 220, 100)
-        else
-            bar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-        end
-    end
-end
-
--- Tombol Preset Grafik (cycle: klik buat ganti ke preset berikutnya)
-local presetBtn = Instance.new("TextButton")
-presetBtn.Size = UDim2.new(1, 0, 0, 24)
-presetBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-presetBtn.Text = "Preset: --"
-presetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-presetBtn.Font = Enum.Font.GothamBold
-presetBtn.TextSize = 12
-presetBtn.LayoutOrder = nextOrder()
-presetBtn.Parent = statsHolder
-
-local presetBtnCorner = Instance.new("UICorner")
-presetBtnCorner.CornerRadius = UDim.new(0, 6)
-presetBtnCorner.Parent = presetBtn
-
--- Baris Favorit Preset: simpan preset sekarang & pakai lagi kapan aja (selama sesi ini)
-local favRow = Instance.new("Frame")
-favRow.Size = UDim2.new(1, 0, 0, 22)
-favRow.BackgroundTransparency = 1
-favRow.LayoutOrder = nextOrder()
-favRow.Parent = statsHolder
-
-local saveFavBtn = Instance.new("TextButton")
-saveFavBtn.Size = UDim2.new(0.48, 0, 1, 0)
-saveFavBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-saveFavBtn.Text = "☆ Simpan"
-saveFavBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-saveFavBtn.Font = Enum.Font.GothamBold
-saveFavBtn.TextSize = 11
-saveFavBtn.Parent = favRow
-
-local saveFavCorner = Instance.new("UICorner")
-saveFavCorner.CornerRadius = UDim.new(0, 6)
-saveFavCorner.Parent = saveFavBtn
-
-local loadFavBtn = Instance.new("TextButton")
-loadFavBtn.Size = UDim2.new(0.48, 0, 1, 0)
-loadFavBtn.Position = UDim2.new(0.52, 0, 0, 0)
-loadFavBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-loadFavBtn.Text = "Pakai Favorit"
-loadFavBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-loadFavBtn.Font = Enum.Font.GothamBold
-loadFavBtn.TextSize = 11
-loadFavBtn.Parent = favRow
-
-local loadFavCorner = Instance.new("UICorner")
-loadFavCorner.CornerRadius = UDim.new(0, 6)
-loadFavCorner.Parent = loadFavBtn
-
--- Tombol Ganti Server (server hop)
-local hopServerBtn = Instance.new("TextButton")
-hopServerBtn.Size = UDim2.new(1, 0, 0, 22)
-hopServerBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-hopServerBtn.Text = "Ganti Server"
-hopServerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-hopServerBtn.Font = Enum.Font.GothamBold
-hopServerBtn.TextSize = 11
-hopServerBtn.LayoutOrder = nextOrder()
-hopServerBtn.Parent = statsHolder
-
-local hopServerCorner = Instance.new("UICorner")
-hopServerCorner.CornerRadius = UDim.new(0, 6)
-hopServerCorner.Parent = hopServerBtn
-
--- Daftar umur akun Roblox pemain lain (data publik, bukan cheat/ESP)
-local playerListTitle = Instance.new("TextLabel")
-playerListTitle.Size = UDim2.new(1, 0, 0, 16)
-playerListTitle.BackgroundTransparency = 1
-playerListTitle.Text = "Umur Akun Pemain:"
-playerListTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
-playerListTitle.Font = Enum.Font.GothamBold
-playerListTitle.TextSize = 11
-playerListTitle.TextXAlignment = Enum.TextXAlignment.Left
-playerListTitle.LayoutOrder = nextOrder()
-playerListTitle.Parent = statsHolder
-
-local playerListFrame = Instance.new("Frame")
-playerListFrame.Size = UDim2.new(1, 0, 0, 0)
-playerListFrame.AutomaticSize = Enum.AutomaticSize.Y
-playerListFrame.BackgroundTransparency = 1
-playerListFrame.LayoutOrder = nextOrder()
-playerListFrame.Parent = statsHolder
-
-local playerListLayout = Instance.new("UIListLayout")
-playerListLayout.Padding = UDim.new(0, 2)
-playerListLayout.Parent = playerListFrame
-
--- Tombol Auto Low Graphics
-local autoGfxBtn = Instance.new("TextButton")
-autoGfxBtn.Size = UDim2.new(1, 0, 0, 22)
-autoGfxBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-autoGfxBtn.Text = "Auto Low Graphics: OFF"
-autoGfxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoGfxBtn.Font = Enum.Font.GothamBold
-autoGfxBtn.TextSize = 11
-autoGfxBtn.LayoutOrder = nextOrder()
-autoGfxBtn.Parent = statsHolder
-
-local autoGfxCorner = Instance.new("UICorner")
-autoGfxCorner.CornerRadius = UDim.new(0, 6)
-autoGfxCorner.Parent = autoGfxBtn
-
--- Tombol Zoom Unlimited (zoom out sejauh mungkin, gak dibatasi default game)
-local zoomBtn = Instance.new("TextButton")
-zoomBtn.Size = UDim2.new(1, 0, 0, 22)
-zoomBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-zoomBtn.Text = "Zoom Unlimited: OFF"
-zoomBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-zoomBtn.Font = Enum.Font.GothamBold
-zoomBtn.TextSize = 11
-zoomBtn.LayoutOrder = nextOrder()
-zoomBtn.Parent = statsHolder
-
-local zoomBtnCorner = Instance.new("UICorner")
-zoomBtnCorner.CornerRadius = UDim.new(0, 6)
-zoomBtnCorner.Parent = zoomBtn
 
 -- ============ BULATAN MINIMIZE ("M") ============
 local bubble = Instance.new("Frame")
@@ -571,15 +438,215 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- ============ PRESET GRAFIK (Ringan, HD, Retro, Sunset, Salju, Malam, Hujan) ============
--- Pastikan ada Atmosphere buat kontrol fog/kabut yang lebih modern
+--============================================================
+-- TAB 1: STATS
+--============================================================
+local function createStatLabel(parent, name)
+    local lbl = Instance.new("TextLabel")
+    lbl.Name = name
+    lbl.Size = UDim2.new(1, 0, 0, 18)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = name .. ": --"
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.LayoutOrder = nextOrder()
+    lbl.Parent = parent
+    return lbl
+end
+
+local fpsLabel = createStatLabel(statsTab, "FPS")
+local pingLabel = createStatLabel(statsTab, "Ping")
+local memLabel = createStatLabel(statsTab, "Memory")
+local statusLabel = createStatLabel(statsTab, "Status")
+local playersLabel = createStatLabel(statsTab, "Players")
+local timeLabel = createStatLabel(statsTab, "Waktu Main")
+local deviceLabel = createStatLabel(statsTab, "Device")
+local accountAgeLabel = createStatLabel(statsTab, "Main Roblox")
+local serverLabel = createStatLabel(statsTab, "Server")
+
+-- Mini grafik history FPS
+local graphFrame = Instance.new("Frame")
+graphFrame.Size = UDim2.new(1, 0, 0, 40)
+graphFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+graphFrame.BorderSizePixel = 0
+graphFrame.LayoutOrder = nextOrder()
+graphFrame.Parent = statsTab
+
+local graphCorner = Instance.new("UICorner")
+graphCorner.CornerRadius = UDim.new(0, 6)
+graphCorner.Parent = graphFrame
+
+local GRAPH_BARS = 18
+local fpsHistory = {}
+local graphBars = {}
+
+for i = 1, GRAPH_BARS do
+    fpsHistory[i] = 0
+    local bar = Instance.new("Frame")
+    bar.AnchorPoint = Vector2.new(0, 1)
+    bar.Position = UDim2.new((i - 1) / GRAPH_BARS, 1, 1, -2)
+    bar.Size = UDim2.new(1 / GRAPH_BARS, -2, 0, 2)
+    bar.BackgroundColor3 = Color3.fromRGB(100, 255, 120)
+    bar.BorderSizePixel = 0
+    bar.Parent = graphFrame
+    graphBars[i] = bar
+end
+
+local function updateGraph(fps)
+    table.remove(fpsHistory, 1)
+    table.insert(fpsHistory, fps)
+    for i, value in ipairs(fpsHistory) do
+        local heightScale = math.clamp(value / 60, 0.03, 1)
+        local bar = graphBars[i]
+        bar.Size = UDim2.new(1 / GRAPH_BARS, -2, heightScale, 0)
+        if value >= 50 then
+            bar.BackgroundColor3 = Color3.fromRGB(100, 255, 120)
+        elseif value >= 25 then
+            bar.BackgroundColor3 = Color3.fromRGB(255, 220, 100)
+        else
+            bar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        end
+    end
+end
+
+-- Tombol Ganti Server
+local hopServerBtn = Instance.new("TextButton")
+hopServerBtn.Size = UDim2.new(1, 0, 0, 22)
+hopServerBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+hopServerBtn.Text = "Ganti Server"
+hopServerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+hopServerBtn.Font = Enum.Font.GothamBold
+hopServerBtn.TextSize = 11
+hopServerBtn.LayoutOrder = nextOrder()
+hopServerBtn.Parent = statsTab
+
+local hopServerCorner = Instance.new("UICorner")
+hopServerCorner.CornerRadius = UDim.new(0, 6)
+hopServerCorner.Parent = hopServerBtn
+
+hopServerBtn.MouseButton1Click:Connect(function()
+    hopServerBtn.Text = "Mencari server..."
+    local success = pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+    if not success then
+        hopServerBtn.Text = "Gagal, coba lagi"
+        task.delay(2, function()
+            hopServerBtn.Text = "Ganti Server"
+        end)
+    end
+end)
+
+-- Daftar umur akun Roblox pemain lain (data publik, bukan cheat/ESP)
+local playerListTitle = Instance.new("TextLabel")
+playerListTitle.Size = UDim2.new(1, 0, 0, 16)
+playerListTitle.BackgroundTransparency = 1
+playerListTitle.Text = "Umur Akun Pemain:"
+playerListTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+playerListTitle.Font = Enum.Font.GothamBold
+playerListTitle.TextSize = 11
+playerListTitle.TextXAlignment = Enum.TextXAlignment.Left
+playerListTitle.LayoutOrder = nextOrder()
+playerListTitle.Parent = statsTab
+
+local playerListFrame = Instance.new("Frame")
+playerListFrame.Size = UDim2.new(1, 0, 0, 0)
+playerListFrame.AutomaticSize = Enum.AutomaticSize.Y
+playerListFrame.BackgroundTransparency = 1
+playerListFrame.LayoutOrder = nextOrder()
+playerListFrame.Parent = statsTab
+
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 2)
+playerListLayout.Parent = playerListFrame
+
+--============================================================
+-- TAB 2: GRAFIK
+--============================================================
+local presetBtn = Instance.new("TextButton")
+presetBtn.Size = UDim2.new(1, 0, 0, 24)
+presetBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+presetBtn.Text = "Preset: --"
+presetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+presetBtn.Font = Enum.Font.GothamBold
+presetBtn.TextSize = 12
+presetBtn.LayoutOrder = nextOrder()
+presetBtn.Parent = grafikTab
+
+local presetBtnCorner = Instance.new("UICorner")
+presetBtnCorner.CornerRadius = UDim.new(0, 6)
+presetBtnCorner.Parent = presetBtn
+
+local favRow = Instance.new("Frame")
+favRow.Size = UDim2.new(1, 0, 0, 22)
+favRow.BackgroundTransparency = 1
+favRow.LayoutOrder = nextOrder()
+favRow.Parent = grafikTab
+
+local saveFavBtn = Instance.new("TextButton")
+saveFavBtn.Size = UDim2.new(0.48, 0, 1, 0)
+saveFavBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+saveFavBtn.Text = "☆ Simpan"
+saveFavBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveFavBtn.Font = Enum.Font.GothamBold
+saveFavBtn.TextSize = 11
+saveFavBtn.Parent = favRow
+
+local saveFavCorner = Instance.new("UICorner")
+saveFavCorner.CornerRadius = UDim.new(0, 6)
+saveFavCorner.Parent = saveFavBtn
+
+local loadFavBtn = Instance.new("TextButton")
+loadFavBtn.Size = UDim2.new(0.48, 0, 1, 0)
+loadFavBtn.Position = UDim2.new(0.52, 0, 0, 0)
+loadFavBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+loadFavBtn.Text = "Pakai Favorit"
+loadFavBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadFavBtn.Font = Enum.Font.GothamBold
+loadFavBtn.TextSize = 11
+loadFavBtn.Parent = favRow
+
+local loadFavCorner = Instance.new("UICorner")
+loadFavCorner.CornerRadius = UDim.new(0, 6)
+loadFavCorner.Parent = loadFavBtn
+
+local autoGfxBtn = Instance.new("TextButton")
+autoGfxBtn.Size = UDim2.new(1, 0, 0, 22)
+autoGfxBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+autoGfxBtn.Text = "Auto Low Graphics: OFF"
+autoGfxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoGfxBtn.Font = Enum.Font.GothamBold
+autoGfxBtn.TextSize = 11
+autoGfxBtn.LayoutOrder = nextOrder()
+autoGfxBtn.Parent = grafikTab
+
+local autoGfxCorner = Instance.new("UICorner")
+autoGfxCorner.CornerRadius = UDim.new(0, 6)
+autoGfxCorner.Parent = autoGfxBtn
+
+local zoomBtn = Instance.new("TextButton")
+zoomBtn.Size = UDim2.new(1, 0, 0, 22)
+zoomBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+zoomBtn.Text = "Zoom Unlimited: OFF"
+zoomBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+zoomBtn.Font = Enum.Font.GothamBold
+zoomBtn.TextSize = 11
+zoomBtn.LayoutOrder = nextOrder()
+zoomBtn.Parent = grafikTab
+
+local zoomBtnCorner = Instance.new("UICorner")
+zoomBtnCorner.CornerRadius = UDim.new(0, 6)
+zoomBtnCorner.Parent = zoomBtn
+
+-- Setup efek visual & atmosphere
 local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 if not atmosphere then
     atmosphere = Instance.new("Atmosphere")
     atmosphere.Parent = Lighting
 end
 
--- Simpan efek visual (Bloom, SunRays, dll) atau bikin baru kalau belum ada
 local function getOrCreateEffect(className, effectName)
     local existing = Lighting:FindFirstChild(effectName)
     if existing then return existing end
@@ -605,21 +672,16 @@ local function resetEffectsOff()
     colorCorrect.Brightness = 0
 end
 
--- ============ SOUND EFFECT PER PRESET ============
--- Sound klik/swoosh pas ganti preset (pakai suara bawaan Roblox, dijamin ada & pasti bunyi)
-local SoundService = game:GetService("SoundService")
-
+-- Sound klik ganti preset (suara bawaan Roblox, pasti bunyi)
 local switchClickSound = Instance.new("Sound")
 switchClickSound.Name = "PM_SwitchClick"
 switchClickSound.SoundId = "rbxasset://sounds/button.wav"
 switchClickSound.Volume = 0.5
 switchClickSound.Parent = SoundService
 
--- Ambience per preset (loop). SoundId sengaja dikosongkan/placeholder karena
--- Asset ID di Roblox Library gampang kena moderasi/dihapus -- kalau aku asal
--- comot nomor, resikonya malah gak bunyi atau ke-report. Silakan isi sendiri
--- SoundId di bawah ini dengan ID dari Toolbox (cari: "rain ambience",
--- "wind loop", "night crickets", "retro chiptune", dst) sesuai selera kamu.
+-- Ambience per preset. Rain sudah diisi dari contoh dokumentasi resmi
+-- Roblox (Add 3D Audio). Yang lain sengaja dikosongin -- isi sendiri via
+-- Toolbox Studio (tab Audio) biar dijamin aman & valid.
 local ambienceSound = Instance.new("Sound")
 ambienceSound.Name = "PM_Ambience"
 ambienceSound.Looped = true
@@ -627,13 +689,13 @@ ambienceSound.Volume = 0.4
 ambienceSound.Parent = SoundService
 
 local presetAmbienceIds = {
-    ["Ringan (Low)"] = "", -- kosong = senyap (biar hemat performa)
+    ["Ringan (Low)"] = "",
     ["HD Default"] = "",
-    ["Retro"] = "", -- isi sendiri ID chiptune/8-bit dari Toolbox Studio (tab Audio)
-    ["Sunset"] = "", -- isi sendiri ID ambience sore/burung dari Toolbox Studio
-    ["Salju"] = "", -- isi sendiri ID angin salju dari Toolbox Studio
-    ["Malam"] = "", -- isi sendiri ID jangkrik malam dari Toolbox Studio
-    ["Hujan"] = "1516791621", -- suara hujan resmi dari contoh dokumentasi Roblox (Add 3D Audio)
+    ["Retro"] = "",
+    ["Sunset"] = "",
+    ["Salju"] = "",
+    ["Malam"] = "",
+    ["Hujan"] = "1516791621",
 }
 
 local function playPresetAmbience(presetName)
@@ -825,7 +887,7 @@ local presets = {
     },
 }
 
-local currentPresetIndex = 2 -- default "HD Default"
+local currentPresetIndex = 2
 
 local function applyPresetByIndex(index)
     currentPresetIndex = index
@@ -840,9 +902,27 @@ presetBtn.MouseButton1Click:Connect(function()
     applyPresetByIndex(nextIndex)
 end)
 
-applyPresetByIndex(currentPresetIndex) -- set HD Default pas awal jalan
+applyPresetByIndex(currentPresetIndex)
 
--- ============ AUTO LOW GRAPHICS ============
+-- Favorit preset (sesi ini)
+local favoritePresetIndex = nil
+
+saveFavBtn.MouseButton1Click:Connect(function()
+    favoritePresetIndex = currentPresetIndex
+    saveFavBtn.Text = "☆ Tersimpan!"
+    task.delay(1, function() saveFavBtn.Text = "☆ Simpan" end)
+end)
+
+loadFavBtn.MouseButton1Click:Connect(function()
+    if favoritePresetIndex then
+        applyPresetByIndex(favoritePresetIndex)
+    else
+        loadFavBtn.Text = "Belum ada!"
+        task.delay(1, function() loadFavBtn.Text = "Pakai Favorit" end)
+    end
+end)
+
+-- Auto Low Graphics
 local autoGfxEnabled = false
 local autoGfxActive = false
 local presetBeforeAuto = currentPresetIndex
@@ -863,21 +943,20 @@ end)
 
 local function checkAutoGraphics(fps)
     if not autoGfxEnabled then return end
-
     if fps < AUTO_GFX_THRESHOLD and not autoGfxActive then
         autoGfxActive = true
         presetBeforeAuto = currentPresetIndex
-        applyPresetByIndex(1) -- "Ringan (Low)"
+        applyPresetByIndex(1)
     elseif fps > AUTO_GFX_RECOVER and autoGfxActive then
         autoGfxActive = false
         applyPresetByIndex(presetBeforeAuto)
     end
 end
 
--- ============ ZOOM UNLIMITED ============
+-- Zoom Unlimited
 local originalMaxZoom = player.CameraMaxZoomDistance
 local zoomUnlimited = false
-local ZOOM_UNLIMITED_VALUE = 100000 -- jauh lebih dari cukup, dijaga finite biar kamera gak error
+local ZOOM_UNLIMITED_VALUE = 100000
 
 zoomBtn.MouseButton1Click:Connect(function()
     zoomUnlimited = not zoomUnlimited
@@ -892,43 +971,282 @@ zoomBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============ FAVORIT PRESET (tersimpan selama sesi ini berjalan) ============
-local favoritePresetIndex = nil
+--============================================================
+-- TAB 3: AVATAR
+--============================================================
+local function getHumanoid()
+    local character = player.Character or player.CharacterAdded:Wait()
+    return character:WaitForChild("Humanoid", 5)
+end
 
-saveFavBtn.MouseButton1Click:Connect(function()
-    favoritePresetIndex = currentPresetIndex
-    saveFavBtn.Text = "☆ Tersimpan!"
-    task.delay(1, function()
-        saveFavBtn.Text = "☆ Simpan"
-    end)
-end)
+local avatarTitle = Instance.new("TextLabel")
+avatarTitle.Size = UDim2.new(1, 0, 0, 16)
+avatarTitle.BackgroundTransparency = 1
+avatarTitle.Text = "Outfit / Item:"
+avatarTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+avatarTitle.Font = Enum.Font.GothamBold
+avatarTitle.TextSize = 11
+avatarTitle.TextXAlignment = Enum.TextXAlignment.Left
+avatarTitle.LayoutOrder = nextOrder()
+avatarTitle.Parent = avatarTab
 
-loadFavBtn.MouseButton1Click:Connect(function()
-    if favoritePresetIndex then
-        applyPresetByIndex(favoritePresetIndex)
-    else
-        loadFavBtn.Text = "Belum ada!"
-        task.delay(1, function()
-            loadFavBtn.Text = "Pakai Favorit"
-        end)
+local function createTextBox(parent, placeholder)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, 0, 0, 24)
+    box.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    box.PlaceholderText = placeholder
+    box.Text = ""
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.PlaceholderColor3 = Color3.fromRGB(140, 140, 150)
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 12
+    box.ClearTextOnFocus = false
+    box.LayoutOrder = nextOrder()
+    box.Parent = parent
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = box
+    return box
+end
+
+local function createActionBtn(parent, text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 22)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.LayoutOrder = nextOrder()
+    btn.Parent = parent
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+    return btn
+end
+
+local outfitIdBox = createTextBox(avatarTab, "Outfit ID (dari Avatar Editor kamu)")
+local applyOutfitBtn = createActionBtn(avatarTab, "Pakai Outfit Ini")
+
+local shirtIdBox = createTextBox(avatarTab, "Shirt Asset ID (opsional)")
+local pantsIdBox = createTextBox(avatarTab, "Pants Asset ID (opsional)")
+local hatIdBox = createTextBox(avatarTab, "Hat/Accessory Asset ID (opsional)")
+local applyItemsBtn = createActionBtn(avatarTab, "Pakai Item Ini")
+
+local avatarStatusLabel = Instance.new("TextLabel")
+avatarStatusLabel.Size = UDim2.new(1, 0, 0, 16)
+avatarStatusLabel.BackgroundTransparency = 1
+avatarStatusLabel.Text = ""
+avatarStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+avatarStatusLabel.Font = Enum.Font.Gotham
+avatarStatusLabel.TextSize = 11
+avatarStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+avatarStatusLabel.LayoutOrder = nextOrder()
+avatarStatusLabel.Parent = avatarTab
+
+local tiruTitle = Instance.new("TextLabel")
+tiruTitle.Size = UDim2.new(1, 0, 0, 16)
+tiruTitle.BackgroundTransparency = 1
+tiruTitle.Text = "Tiru Avatar Orang Lain:"
+tiruTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+tiruTitle.Font = Enum.Font.GothamBold
+tiruTitle.TextSize = 11
+tiruTitle.TextXAlignment = Enum.TextXAlignment.Left
+tiruTitle.LayoutOrder = nextOrder()
+tiruTitle.Parent = avatarTab
+
+local copyUsernameBox = createTextBox(avatarTab, "Username buat ditiru avatarnya")
+local copyAvatarBtn = createActionBtn(avatarTab, "Tiru Avatar Ini")
+
+local sizeTitle = Instance.new("TextLabel")
+sizeTitle.Size = UDim2.new(1, 0, 0, 16)
+sizeTitle.BackgroundTransparency = 1
+sizeTitle.Text = "Ukuran & Style:"
+sizeTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+sizeTitle.Font = Enum.Font.GothamBold
+sizeTitle.TextSize = 11
+sizeTitle.TextXAlignment = Enum.TextXAlignment.Left
+sizeTitle.LayoutOrder = nextOrder()
+sizeTitle.Parent = avatarTab
+
+local sizeRow1 = Instance.new("Frame")
+sizeRow1.Size = UDim2.new(1, 0, 0, 22)
+sizeRow1.BackgroundTransparency = 1
+sizeRow1.LayoutOrder = nextOrder()
+sizeRow1.Parent = avatarTab
+
+local function makeSmallBtn(parent, posX, widthFraction, text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(widthFraction, -3, 1, 0)
+    btn.Position = UDim2.new(posX, 0, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.Parent = parent
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+    return btn
+end
+
+local tinyBtn = makeSmallBtn(sizeRow1, 0, 1 / 3, "Tiny")
+local normalBtn = makeSmallBtn(sizeRow1, 1 / 3, 1 / 3, "Normal")
+local bigBtn = makeSmallBtn(sizeRow1, 2 / 3, 1 / 3, "Big")
+
+local sizeRow2 = Instance.new("Frame")
+sizeRow2.Size = UDim2.new(1, 0, 0, 22)
+sizeRow2.BackgroundTransparency = 1
+sizeRow2.LayoutOrder = nextOrder()
+sizeRow2.Parent = avatarTab
+
+local longBtn = makeSmallBtn(sizeRow2, 0, 1 / 3, "Long")
+local claudeStyleBtn = makeSmallBtn(sizeRow2, 1 / 3, 2 / 3, "Gaya Claude")
+
+-- Logic Avatar
+applyOutfitBtn.MouseButton1Click:Connect(function()
+    local outfitId = tonumber(outfitIdBox.Text)
+    if not outfitId then
+        avatarStatusLabel.Text = "Outfit ID harus angka!"
+        avatarStatusLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+        return
     end
-end)
+    avatarStatusLabel.Text = "Menerapkan outfit..."
+    avatarStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 
--- ============ GANTI SERVER (server hop) ============
-hopServerBtn.MouseButton1Click:Connect(function()
-    hopServerBtn.Text = "Mencari server..."
+    local humanoid = getHumanoid()
     local success = pcall(function()
-        TeleportService:Teleport(game.PlaceId, player)
+        local desc = Players:GetHumanoidDescriptionFromOutfitId(outfitId)
+        humanoid:ApplyDescription(desc)
     end)
-    if not success then
-        hopServerBtn.Text = "Gagal, coba lagi"
-        task.delay(2, function()
-            hopServerBtn.Text = "Ganti Server"
-        end)
-    end
+
+    avatarStatusLabel.Text = success and "Outfit berhasil dipakai!" or "Gagal: outfit ID salah/bukan milikmu"
+    avatarStatusLabel.TextColor3 = success and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
 end)
 
--- ============ INFO DEVICE ============
+applyItemsBtn.MouseButton1Click:Connect(function()
+    local humanoid = getHumanoid()
+    local success = pcall(function()
+        local desc = humanoid:GetAppliedDescription()
+
+        if shirtIdBox.Text ~= "" then
+            local shirtId = tonumber(shirtIdBox.Text)
+            if shirtId then desc.Shirt = shirtId end
+        end
+        if pantsIdBox.Text ~= "" then
+            local pantsId = tonumber(pantsIdBox.Text)
+            if pantsId then desc.Pants = pantsId end
+        end
+        if hatIdBox.Text ~= "" then
+            local hatId = tonumber(hatIdBox.Text)
+            if hatId then
+                local existing = desc:GetAccessories(true)
+                table.insert(existing, {
+                    AccessoryType = Enum.AccessoryType.Hat,
+                    AssetId = hatId,
+                    IsLayered = false,
+                    Order = #existing + 1,
+                    Puffiness = 0,
+                })
+                desc:SetAccessories(existing, true)
+            end
+        end
+
+        humanoid:ApplyDescription(desc)
+    end)
+
+    avatarStatusLabel.Text = success and "Item berhasil dipakai!" or "Gagal: cek lagi Asset ID-nya"
+    avatarStatusLabel.TextColor3 = success and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+copyAvatarBtn.MouseButton1Click:Connect(function()
+    local username = copyUsernameBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+    if username == "" then
+        avatarStatusLabel.Text = "Isi username dulu!"
+        avatarStatusLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+        return
+    end
+    avatarStatusLabel.Text = "Nyari avatar " .. username .. "..."
+    avatarStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+
+    local humanoid = getHumanoid()
+    local success = pcall(function()
+        local userId = Players:GetUserIdFromNameAsync(username)
+        local desc = Players:GetHumanoidDescriptionFromUserId(userId)
+        humanoid:ApplyDescription(desc)
+    end)
+
+    avatarStatusLabel.Text = success and ("Avatar " .. username .. " berhasil ditiru!") or "Gagal: username salah/gak ketemu"
+    avatarStatusLabel.TextColor3 = success and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+local function setAvatarScale(height, width, depth, headScale, bodyType)
+    local humanoid = getHumanoid()
+    return pcall(function()
+        local desc = humanoid:GetAppliedDescription()
+        desc.HeightScale = height
+        desc.WidthScale = width
+        desc.DepthScale = depth
+        desc.HeadScale = headScale
+        desc.BodyTypeScale = bodyType
+        humanoid:ApplyDescription(desc)
+    end)
+end
+
+tinyBtn.MouseButton1Click:Connect(function()
+    local ok = setAvatarScale(0.5, 0.5, 0.5, 0.85, 0)
+    avatarStatusLabel.Text = ok and "Avatar jadi Tiny!" or "Gagal ubah ukuran"
+    avatarStatusLabel.TextColor3 = ok and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+normalBtn.MouseButton1Click:Connect(function()
+    local ok = setAvatarScale(1, 1, 1, 1, 0.5)
+    avatarStatusLabel.Text = ok and "Avatar balik Normal!" or "Gagal ubah ukuran"
+    avatarStatusLabel.TextColor3 = ok and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+bigBtn.MouseButton1Click:Connect(function()
+    local ok = setAvatarScale(1.4, 1.3, 1.3, 1.1, 1)
+    avatarStatusLabel.Text = ok and "Avatar jadi Big!" or "Gagal ubah ukuran"
+    avatarStatusLabel.TextColor3 = ok and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+longBtn.MouseButton1Click:Connect(function()
+    local ok = setAvatarScale(1.6, 0.55, 0.55, 0.9, 0)
+    avatarStatusLabel.Text = ok and "Avatar jadi Long!" or "Gagal ubah ukuran"
+    avatarStatusLabel.TextColor3 = ok and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+claudeStyleBtn.MouseButton1Click:Connect(function()
+    local humanoid = getHumanoid()
+    local success = pcall(function()
+        local desc = humanoid:GetAppliedDescription()
+        desc.HeightScale = 1.05
+        desc.WidthScale = 0.85
+        desc.DepthScale = 0.9
+        desc.HeadScale = 0.95
+        desc.BodyTypeScale = 0.3
+
+        local charcoal = Color3.fromRGB(45, 45, 50)
+        local accentOrange = Color3.fromRGB(217, 119, 87)
+        desc.HeadColor = charcoal
+        desc.TorsoColor = charcoal
+        desc.LeftArmColor = accentOrange
+        desc.RightArmColor = accentOrange
+        desc.LeftLegColor = charcoal
+        desc.RightLegColor = charcoal
+
+        humanoid:ApplyDescription(desc)
+    end)
+
+    avatarStatusLabel.Text = success and "Gaya Claude diterapkan!" or "Gagal terapkan style"
+    avatarStatusLabel.TextColor3 = success and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(255, 120, 120)
+end)
+
+--============================================================
+-- INFO DEVICE, UMUR AKUN, SERVER (Tab Stats)
+--============================================================
 local function getDeviceType()
     if GuiService:IsTenFootInterface() then
         return "Console"
@@ -942,7 +1260,6 @@ local function getDeviceType()
 end
 deviceLabel.Text = "Device: " .. getDeviceType()
 
--- ============ UMUR AKUN ROBLOX (sudah berapa lama main Roblox) ============
 local function formatAccountAge(days)
     local years = math.floor(days / 365)
     local months = math.floor((days % 365) / 30)
@@ -956,14 +1273,11 @@ local function formatAccountAge(days)
 end
 accountAgeLabel.Text = "Main Roblox: " .. formatAccountAge(player.AccountAge)
 
--- ============ DAFTAR UMUR AKUN PEMAIN LAIN ============
--- AccountAge itu properti PUBLIK yang direplikasi Roblox ke semua client,
--- bukan data rahasia/hidden -- makanya ini bisa dibaca tanpa server script,
--- beda sama FPS/ping yang emang cuma ada di device masing-masing.
-local playerRowLabels = {}
+local shortJobId = game.JobId ~= "" and string.sub(game.JobId, 1, 8) or "Studio"
+serverLabel.Text = "Server: " .. shortJobId
 
+local playerRowLabels = {}
 local function refreshPlayerList()
-    -- Bersihin label lama
     for _, lbl in pairs(playerRowLabels) do
         lbl:Destroy()
     end
@@ -990,15 +1304,13 @@ Players.PlayerRemoving:Connect(refreshPlayerList)
 task.spawn(function()
     while true do
         task.wait(5)
-        refreshPlayerList() -- refresh berkala biar umur akun kebaca kalau ada yg baru masuk
+        refreshPlayerList()
     end
 end)
 
--- ============ INFO SERVER ============
-local shortJobId = game.JobId ~= "" and string.sub(game.JobId, 1, 8) or "Studio"
-serverLabel.Text = "Server: " .. shortJobId
-
--- ============ LOGIKA UPDATE STATISTIK ============
+--============================================================
+-- LOOP UPDATE STATISTIK
+--============================================================
 local frameCount = 0
 local fpsTimer = 0
 local currentFPS = 0
@@ -1041,7 +1353,6 @@ task.spawn(function()
         updateGraph(currentFPS)
         checkAutoGraphics(currentFPS)
 
-        -- Notifikasi kalau FPS anjlok parah
         if currentFPS > 0 and currentFPS < 12 then
             showToast("⚠ FPS drop parah! Sekarang " .. currentFPS .. " FPS")
         end
